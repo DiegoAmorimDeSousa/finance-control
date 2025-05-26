@@ -3,33 +3,58 @@ const { Telegraf } = require('telegraf');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
-bot.start((ctx) => ctx.reply('Olá! Envie sua despesa no formato: categoria - valor'));
-bot.help((ctx) => ctx.reply('Envie sua despesa no formato: categoria - valor\nExemplo: mercado - 12.00'));
+bot.start((ctx) => ctx.reply(`
+  Olá! Envie sua nova transação no formato: 
+  Tipo (Despesa / Entrada):
+  Descrição: 
+  Categoria:
+  Valor: 
+`));
+bot.help((ctx) => ctx.reply(`
+  Envie sua nova transação no formato: 
+  Tipo (Despesa / Entrada):
+  Descrição: 
+  Categoria:
+  Valor: 
+`));
 
 bot.on('text', async (ctx) => {
   const message = ctx.message.text;
-  const parts = message.split('-');
-
-  if (parts.length !== 2) {
-    ctx.reply('Formato inválido. Use: categoria - valor\nExemplo: mercado - 12.00');
-    return;
-  }
-
-  const categoria = parts[0].trim();
-  const valor = parts[1].trim().replace(',', '.');
-
-  if (isNaN(parseFloat(valor))) {
-    ctx.reply('Valor inválido. Envie um número. Exemplo: mercado - 12.00');
-    return;
-  }
-
-  const data = {
-    categoria,
-    valor: parseFloat(valor)
-  };
+  const user = ctx.message.from.first_name;
 
   try {
-    console.log('process.env.GOOGLE_SHEET_URL', process.env.GOOGLE_SHEET_URL)
+    const typeMatch = message.match(/Tipo:\s*(.+)/i);
+    const descriptionMatch = message.match(/Descrição:\s*(.+)/i);
+    const categoryMatch = message.match(/Categoria:\s*(.+)/i);
+    const costMatch = message.match(/Valor:\s*([\d.,]+)/i);
+
+    console.log('typeMatch', typeMatch)
+
+    if (!typeMatch || !descriptionMatch || !categoryMatch || !costMatch) {
+      ctx.reply(`
+      ⚠️ Formato incorreto. Envie sua transação assim:
+
+      Tipo: Despesa ou Entrada
+      Descrição: Teste
+      Categoria: Mercado
+      Valor: 12.50
+      `);
+      return;
+    }
+
+    const description = descriptionMatch[1].trim();
+    const category = categoryMatch[1].trim();
+    const cost = parseFloat(costMatch[1].replace(',', '.'));
+    const type = typeMatch[1].trim().toLowerCase();
+
+    const data = {
+      type,
+      description,
+      category,
+      cost,
+      user,
+    };
+
     const response = await fetch(process.env.GOOGLE_SHEET_URL, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -39,13 +64,13 @@ bot.on('text', async (ctx) => {
     const result = await response.json();
 
     if (result.result === 'Success') {
-      ctx.reply(`Adicionado: ${categoria} - R$${valor}`);
+      ctx.reply(`✅ Adicionado: ${description} (${category}) - R$${cost}`);
     } else {
-      ctx.reply('Erro ao salvar na planilha.');
+      ctx.reply('❌ Erro ao salvar na planilha.');
     }
   } catch (error) {
     console.error(error);
-    ctx.reply('Erro ao conectar com a planilha.');
+    ctx.reply('❌ Erro ao conectar com a planilha.');
   }
 });
 
