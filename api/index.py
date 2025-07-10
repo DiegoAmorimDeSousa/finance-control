@@ -50,39 +50,39 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # SEU HANDLER ORIGINAL (COMENTADO PARA TESTAR O ECHO PRIMEIRO)
-# async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-#     text = update.message.text
-#     user = update.message.from_user.first_name
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    user = update.message.from_user.first_name
 
-#     try:
-#         type_match = find_match(r"Tipo:\s*(.+)", text)
-#         description_match = find_match(r"Descrição:\s*(.+)", text)
-#         category_match = find_match(r"Categoria:\s*(.+)", text)
-#         cost_match = find_match(r"Valor:\s*([\d.,]+)", text)
+    try:
+        type_match = find_match(r"Tipo:\s*(.+)", text)
+        description_match = find_match(r"Descrição:\s*(.+)", text)
+        category_match = find_match(r"Categoria:\s*(.+)", text)
+        cost_match = find_match(r"Valor:\s*([\d.,]+)", text)
 
-#         if not all([type_match, description_match, category_match, cost_match]):
-#             await update.message.reply_text(f"⚠️ Formato incorreto. Envie assim:\n{instructions}", parse_mode=ParseMode.MARKDOWN_V2)
-#             return
+        if not all([type_match, description_match, category_match, cost_match]):
+            await update.message.reply_text(f"⚠️ Formato incorreto. Envie assim:\n{instructions}", parse_mode=ParseMode.MARKDOWN_V2)
+            return
 
-#         data = {
-#             "type": type_match,
-#             "description": description_match,
-#             "category": category_match,
-#             "cost": float(cost_match.replace(",", ".")),
-#             "user": user,
-#         }
+        data = {
+            "type": type_match,
+            "description": description_match,
+            "category": category_match,
+            "cost": float(cost_match.replace(",", ".")),
+            "user": user,
+        }
 
-#         response = requests.post(GOOGLE_SHEET_URL, json=data)
-#         result = response.json()
+        response = requests.post(GOOGLE_SHEET_URL, json=data)
+        result = response.json()
 
-#         if result.get("result") == "Success":
-#             await update.message.reply_text(f"✅ Adicionado: {data['description']} ({data['category']}) - R${data['cost']:.2f}")
-#         else:
-#             await update.message.reply_text("❌ Erro ao salvar na planilha.")
+        if result.get("result") == "Success":
+            await update.message.reply_text(f"✅ Adicionado: {data['description']} ({data['category']}) - R${data['cost']:.2f}")
+        else:
+            await update.message.reply_text("❌ Erro ao salvar na planilha.")
 
-#     except Exception as e:
-#         print(f"Erro ao processar mensagem: {e}")
-#         await update.message.reply_text("❌ Erro ao processar a mensagem.")
+    except Exception as e:
+        print(f"Erro ao processar mensagem: {e}")
+        await update.message.reply_text("❌ Erro ao processar a mensagem.")
 
 # -----------------------------------------------------------
 # 👉 Configuração do Flask e Inicialização Controlada do PTB
@@ -99,8 +99,8 @@ _application_initialized = False
 # Adicione os handlers
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("help", help_command))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-# application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+# application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
 
 # Rota POST para o webhook
