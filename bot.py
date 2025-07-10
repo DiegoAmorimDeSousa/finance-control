@@ -85,7 +85,7 @@ def main():
 
     # Inicie o bot
     print("🤖 Bot rodando...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES) # Ou apenas application.run_polling() se não quiser filtrar updates
+    application.run_polling() # Linha alterada aqui
 
 if __name__ == "__main__":
     main()
