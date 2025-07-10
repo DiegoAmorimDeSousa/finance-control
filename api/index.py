@@ -1,6 +1,6 @@
 import os
 import re
-import asyncio # Importar asyncio
+import asyncio
 from dotenv import load_dotenv
 from telegram import Update, Bot
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -48,16 +48,53 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         print("Recebida uma atualização sem mensagem de texto.")
 
-# async def handle_text(...): # Seu handler original (comentado)
+
+# SEU HANDLER ORIGINAL (COMENTADO PARA TESTAR O ECHO PRIMEIRO)
+# async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     text = update.message.text
+#     user = update.message.from_user.first_name
+
+#     try:
+#         type_match = find_match(r"Tipo:\s*(.+)", text)
+#         description_match = find_match(r"Descrição:\s*(.+)", text)
+#         category_match = find_match(r"Categoria:\s*(.+)", text)
+#         cost_match = find_match(r"Valor:\s*([\d.,]+)", text)
+
+#         if not all([type_match, description_match, category_match, cost_match]):
+#             await update.message.reply_text(f"⚠️ Formato incorreto. Envie assim:\n{instructions}", parse_mode=ParseMode.MARKDOWN_V2)
+#             return
+
+#         data = {
+#             "type": type_match,
+#             "description": description_match,
+#             "category": category_match,
+#             "cost": float(cost_match.replace(",", ".")),
+#             "user": user,
+#         }
+
+#         response = requests.post(GOOGLE_SHEET_URL, json=data)
+#         result = response.json()
+
+#         if result.get("result") == "Success":
+#             await update.message.reply_text(f"✅ Adicionado: {data['description']} ({data['category']}) - R${data['cost']:.2f}")
+#         else:
+#             await update.message.reply_text("❌ Erro ao salvar na planilha.")
+
+#     except Exception as e:
+#         print(f"Erro ao processar mensagem: {e}")
+#         await update.message.reply_text("❌ Erro ao processar a mensagem.")
 
 # -----------------------------------------------------------
-# 👉 Configuração do Flask e Inicialização Assíncrona do PTB
+# 👉 Configuração do Flask e Inicialização Controlada do PTB
 # -----------------------------------------------------------
 
 app = Flask(__name__)
 
-# Instancia o Application do python-telegram-bot
+# Instancia o Application do python-telegram-bot globalmente
 application = Application.builder().token(BOT_TOKEN).build()
+
+# Flag para garantir que a inicialização ocorra apenas uma vez
+_application_initialized = False
 
 # Adicione os handlers
 application.add_handler(CommandHandler("start", start))
@@ -65,33 +102,23 @@ application.add_handler(CommandHandler("help", help_command))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-# CORREÇÃO CRÍTICA: Inicializa a aplicação PTB de forma assíncrona uma única vez
-# Isso é necessário porque initialize() é uma corrotina.
-try:
-    asyncio.run(application.initialize())
-    print("Application do python-telegram-bot inicializada com sucesso!")
-except RuntimeError as e:
-    if "Cannot run asyncio.run() while another loop is running" in str(e):
-        # Isso pode acontecer em ambientes como Gunicorn/Werkzeug que já têm um loop
-        # Deixe o initialize rodar no loop existente se já houver um.
-        # Caso contrário, o erro "was never awaited" persiste.
-        try:
-            loop = asyncio.get_event_loop()
-            if not loop.is_running():
-                loop.run_until_complete(application.initialize())
-            else:
-                # Se o loop já estiver rodando, use create_task para agendar
-                loop.create_task(application.initialize())
-            print("Application do python-telegram-bot agendada para inicialização no loop existente.")
-        except Exception as inner_e:
-            print(f"Erro ao tentar inicializar Application no loop existente: {inner_e}")
-    else:
-        print(f"Erro inesperado ao inicializar Application: {e}")
 
-# Rotas do Flask
+# Rota POST para o webhook
 @app.post('/api')
 async def webhook():
     """Handle incoming Telegram updates."""
+    global _application_initialized # Acessa a flag global
+
+    if not _application_initialized:
+        try:
+            # Inicializa a Application apenas na primeira requisição
+            await application.initialize()
+            _application_initialized = True
+            print("Application do python-telegram-bot inicializada na primeira requisição!")
+        except Exception as e:
+            print(f"Erro ao inicializar Application na primeira requisição: {e}")
+            return jsonify({"status": "error", "message": "Failed to initialize bot"}), 500
+
     if request.method == "POST":
         update_json = request.get_json(force=True)
         if not update_json:
@@ -110,13 +137,16 @@ async def webhook():
     print("Método não permitido para /api.")
     return jsonify({"status": "method not allowed"}), 405
 
+# Rota GET para teste no navegador (OPCIONAL)
 @app.route('/api', methods=['GET'])
 def api_get_test():
     return jsonify({"status": "API endpoint is active via GET method."}), 200
 
 # -----------------------------------------------------------
-# Para testes locais
+# Para testes locais com Hypercorn (RECOMENDADO!)
 # -----------------------------------------------------------
 if __name__ == '__main__':
-    print("Rodando Flask localmente. Use ngrok para expor para o Telegram.")
-    app.run(debug=True, port=5000)
+    print("Este script deve ser executado com Hypercorn para testes locais.")
+    print("Use o comando: hypercorn api.index:app --bind 0.0.0.0:5000 --reload")
+    # Removendo app.run() para forçar o uso de um servidor ASGI como Hypercorn
+    # app.run(debug=True, port=5000)
