@@ -111,7 +111,7 @@ async def webhook():
 
     if not _application_initialized:
         try:
-            # Inicializa a Application apenas na primeira requisição
+            # Inicializa a Application apenas na primeira requisição da instância serverless
             await application.initialize()
             _application_initialized = True
             print("Application do python-telegram-bot inicializada na primeira requisição!")
@@ -132,6 +132,12 @@ async def webhook():
         except Exception as e:
             print(f"Erro ao processar update do Telegram: {e}")
             return jsonify({"status": "error", "message": str(e)}), 500
+        finally:
+            # CORREÇÃO CRÍTICA: Desliga a aplicação do PTB para liberar conexões
+            # Isso é crucial para funções serverless para evitar "Connection pool is closed"
+            await application.shutdown()
+            print("Application do python-telegram-bot desligada após processamento.")
+
 
         return jsonify({"status": "ok"}), 200
     print("Método não permitido para /api.")
