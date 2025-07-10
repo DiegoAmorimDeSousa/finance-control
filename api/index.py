@@ -79,7 +79,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print('GOOGLE_SHEET_URL:', GOOGLE_SHEET_URL)
         print('Fazendo requisição para o Google Sheets...')
 
-        response = requests.post('https://script.google.com/macros/s/AKfycbxtjQnB3e4McjdeHgzjqc_TkJPOpFcXiAgwjfcnkr6_5cE30dN_WgmYHm9xowYHKIJH/exec', json=data)
+        response = requests.post('https://script.google.com/macros/s/AKfycbzdxJ_sNQ9vLMMybyZ79xWlZFOxni02rtZIb-C3xGGKH1in0GaGGF7v3C-jpobCeXEv/exec', json=data)
         print('response:', response.text)
         result = response.json()
 
