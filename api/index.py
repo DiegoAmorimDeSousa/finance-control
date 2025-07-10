@@ -77,8 +77,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"Dados extraídos: {data}")
 
         print('GOOGLE_SHEET_URL:', GOOGLE_SHEET_URL)
+        print('Fazendo requisição para o Google Sheets...')
 
-        response = requests.post(GOOGLE_SHEET_URL, json=data)
+        response = requests.post('https://script.google.com/macros/s/AKfycbxtjQnB3e4McjdeHgzjqc_TkJPOpFcXiAgwjfcnkr6_5cE30dN_WgmYHm9xowYHKIJH/exec', json=data)
         print('response:', response.text)
         result = response.json()
 
