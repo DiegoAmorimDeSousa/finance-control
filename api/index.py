@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from telegram import Update, Bot
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from telegram.constants import ParseMode # Importe ParseMode para usar HTML/Markdown
-from telegram.ext.callbackcontext import CallbackContext # Necessário para o RequestHandler
+from telegram.ext import CallbackContext
 from http.server import BaseHTTPRequestHandler # Para tipagem do RequestHandler
 import requests
 
