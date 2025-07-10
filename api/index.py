@@ -63,6 +63,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not all([type_match, description_match, category_match, cost_match]):
             await update.message.reply_text(f"⚠️ Formato incorreto. Envie assim:\n{instructions}", parse_mode=ParseMode.MARKDOWN_V2)
             return
+        
+        print('ANTES DA DATA')
 
         data = {
             "type": type_match,
@@ -72,8 +74,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "user": user,
         }
 
+        print(f"Dados extraídos: {data}")
+
         response = requests.post(GOOGLE_SHEET_URL, json=data)
+        print('response:', response.text)
         result = response.json()
+
+        print(f"Resposta do Google Sheets: {result}")
 
         if result.get("result") == "Success":
             await update.message.reply_text(f"✅ Adicionado: {data['description']} ({data['category']}) - R${data['cost']:.2f}")
