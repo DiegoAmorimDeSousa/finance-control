@@ -76,6 +76,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         print(f"Dados extraídos: {data}")
 
+        print('GOOGLE_SHEET_URL:', GOOGLE_SHEET_URL)
+
         response = requests.post(GOOGLE_SHEET_URL, json=data)
         print('response:', response.text)
         result = response.json()
