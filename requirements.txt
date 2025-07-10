@@ -1,0 +1,7 @@
+python-telegram-bot[webhooks]==20.8 # Ou a versão 20.x que você está usando
+pytesseract
+Pillow
+python-dotenv
+requests
+Flask # Adicione Flask
+gunicorn # Servidor WSGI para Vercel (geralmente usado implicitamente, mas bom ter)
