@@ -18,7 +18,13 @@ load_dotenv()
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GOOGLE_SHEET_URL = os.getenv("GOOGLE_SHEET_URL")
 
+# ✨ CORREÇÃO AQUI: Adiciona uma variável para verificar o ambiente
+# A Vercel define a variável de ambiente 'VERCEL' com o valor '1' em produção.
+# Isso nos permite diferenciar o ambiente local do ambiente serverless da Vercel.
+IS_VERCEL_ENV = os.getenv("VERCEL") == "1"
+
 print(f"BOT_TOKEN carregado: {BOT_TOKEN}")
+print(f"Ambiente Vercel detectado: {IS_VERCEL_ENV}") # Mensagem útil para depuração
 
 instructions = """
 👋 Olá! Envie sua transação no formato:
@@ -49,9 +55,8 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print("Recebida uma atualização sem mensagem de texto.")
 
 
-# SEU HANDLER ORIGINAL (COMENTADO PARA TESTAR O ECHO PRIMEIRO)
+# SEU HANDLER ORIGINAL
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(update)
     text = update.message.text
     user = update.message.from_user.first_name
 
@@ -80,6 +85,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print('GOOGLE_SHEET_URL:', GOOGLE_SHEET_URL)
         print('Fazendo requisição para o Google Sheets...')
 
+        # A URL do seu Google Apps Script já está hardcoded aqui, o GOOGLE_SHEET_URL do .env não está sendo usado.
+        # Se você pretende usar a variável de ambiente, altere a linha abaixo:
+        # response = requests.post(GOOGLE_SHEET_URL, json=data)
         response = requests.post('https://script.google.com/macros/s/AKfycbzdxJ_sNQ9vLMMybyZ79xWlZFOxni02rtZIb-C3xGGKH1in0GaGGF7v3C-jpobCeXEv/exec', json=data)
         print('response:', response.text)
         result = response.json()
@@ -104,13 +112,13 @@ app = Flask(__name__)
 # Instancia o Application do python-telegram-bot globalmente
 application = Application.builder().token(BOT_TOKEN).build()
 
-# Flag para garantir que a inicialização ocorra apenas uma vez
+# Flag para garantir que a inicialização ocorra apenas uma vez por "boot" da instância serverless (Vercel)
+# ou por processo local (Hypercorn).
 _application_initialized = False
 
 # Adicione os handlers
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("help", help_command))
-# application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
 
@@ -120,9 +128,10 @@ async def webhook():
     """Handle incoming Telegram updates."""
     global _application_initialized # Acessa a flag global
 
+    # Inicializa a Application apenas na primeira requisição da instância serverless
+    # ou na primeira requisição em ambiente local.
     if not _application_initialized:
         try:
-            # Inicializa a Application apenas na primeira requisição da instância serverless
             await application.initialize()
             _application_initialized = True
             print("Application do python-telegram-bot inicializada na primeira requisição!")
@@ -132,12 +141,14 @@ async def webhook():
 
     if request.method == "POST":
         update_json = request.get_json(force=True)
+        # ✨ Opcional: Adicione este print para ver o payload completo recebido ✨
+        print(f"Payload recebido no webhook: {update_json}")
+        
         if not update_json:
             print("Nenhum dado JSON recebido.")
             return jsonify({"status": "no data"}), 200
 
         try:
-            print(f"Recebido update do Telegram: {update_json}")
             update = Update.de_json(update_json, application.bot)
             await application.process_update(update)
 
@@ -145,10 +156,15 @@ async def webhook():
             print(f"Erro ao processar update do Telegram: {e}")
             return jsonify({"status": "error", "message": str(e)}), 500
         finally:
-            # CORREÇÃO CRÍTICA: Desliga a aplicação do PTB para liberar conexões
-            # Isso é crucial para funções serverless para evitar "Connection pool is closed"
-            await application.shutdown()
-            print("Application do python-telegram-bot desligada após processamento.")
+            # ✨ CORREÇÃO AQUI: Condiciona o desligamento da aplicação ao ambiente Vercel
+            # Isso é crucial: em ambiente serverless (Vercel), a aplicação é efêmera e
+            # precisa liberar recursos após cada requisição. Em ambiente local (Hypercorn),
+            # o servidor é persistente e a aplicação deve permanecer ativa.
+            if IS_VERCEL_ENV:
+                await application.shutdown()
+                print("Application do python-telegram-bot desligada após processamento (Ambiente Vercel).")
+            else:
+                print("Em ambiente local, a Application do python-telegram-bot permanece ativa.")
 
 
         return jsonify({"status": "ok"}), 200
