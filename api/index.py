@@ -51,6 +51,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # SEU HANDLER ORIGINAL (COMENTADO PARA TESTAR O ECHO PRIMEIRO)
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(update)
     text = update.message.text
     user = update.message.from_user.first_name
 
@@ -136,6 +137,7 @@ async def webhook():
             return jsonify({"status": "no data"}), 200
 
         try:
+            print(f"Recebido update do Telegram: {update_json}")
             update = Update.de_json(update_json, application.bot)
             await application.process_update(update)
 
