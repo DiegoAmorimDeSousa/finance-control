@@ -59,49 +59,52 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user = update.message.from_user.first_name
+    
+    # Divide o texto em partes, usando '||' como separador.
+    # O resultado será uma lista, por exemplo: ['Tipo: Saída...', ' Tipo: Saída...']
+    transactions_text = text.split('|')
+    
+    # Loop para processar cada parte do texto (cada transação)
+    for transaction_text in transactions_text:
+        try:
+            # Note o .strip() para remover espaços em branco no início e no fim de cada item.
+            type_match = find_match(r"Tipo:\s*(.+)", transaction_text.strip())
+            description_match = find_match(r"Descrição:\s*(.+)", transaction_text.strip())
+            category_match = find_match(r"Categoria:\s*(.+)", transaction_text.strip())
+            cost_match = find_match(r"Valor:\s*([\d.,]+)", transaction_text.strip())
 
-    try:
-        type_match = find_match(r"Tipo:\s*(.+)", text)
-        description_match = find_match(r"Descrição:\s*(.+)", text)
-        category_match = find_match(r"Categoria:\s*(.+)", text)
-        cost_match = find_match(r"Valor:\s*([\d.,]+)", text)
+            # Se alguma das partes estiver faltando em uma transação, pula para a próxima
+            # e informa o usuário sobre o erro.
+            if not all([type_match, description_match, category_match, cost_match]):
+                await update.message.reply_text(f"⚠️ Formato incorreto em uma das transações. Verifique a sintaxe: {transaction_text.strip()}", parse_mode=ParseMode.MARKDOWN_V2)
+                continue  # Pula para a próxima iteração do loop
 
-        if not all([type_match, description_match, category_match, cost_match]):
-            await update.message.reply_text(f"⚠️ Formato incorreto. Envie assim:\n{instructions}", parse_mode=ParseMode.MARKDOWN_V2)
-            return
-        
-        print('ANTES DA DATA')
+            data = {
+                "type": type_match,
+                "description": description_match,
+                "category": category_match,
+                "cost": float(cost_match.replace(",", ".")),
+                "user": user,
+            }
 
-        data = {
-            "type": type_match,
-            "description": description_match,
-            "category": category_match,
-            "cost": float(cost_match.replace(",", ".")),
-            "user": user,
-        }
+            # A requisição agora está dentro do loop
+            response = requests.post('https://script.google.com/macros/s/AKfycbzdxJ_sNQ9vLMMybyZ79xWlZFOxni02rtZIb-C3xGGKH1in0GaGGF7v3C-jpobCeXEv/exec', json=data)
+            
+            # Checagem para garantir que a resposta é um JSON antes de tentar o parse
+            try:
+                result = response.json()
+            except requests.exceptions.JSONDecodeError:
+                print(f"Erro: Resposta não é um JSON válido. Resposta: {response.text}")
+                await update.message.reply_text("❌ Erro ao processar a resposta da API do Google Sheets. O formato não é um JSON válido.")
+                continue # Pula para a próxima iteração do loop
 
-        print(f"Dados extraídos: {data}")
+            if result.get("result") == "Success":
+                await update.message.reply_text(f"✅ Adicionado: {data['description']} ({data['category']}) - R${data['cost']:.2f}")
+            else:
+                await update.message.reply_text(f"❌ Erro ao salvar '{data['description']}' na planilha.")
 
-        print('GOOGLE_SHEET_URL:', GOOGLE_SHEET_URL)
-        print('Fazendo requisição para o Google Sheets...')
-
-        # A URL do seu Google Apps Script já está hardcoded aqui, o GOOGLE_SHEET_URL do .env não está sendo usado.
-        # Se você pretende usar a variável de ambiente, altere a linha abaixo:
-        # response = requests.post(GOOGLE_SHEET_URL, json=data)
-        response = requests.post('https://script.google.com/macros/s/AKfycbzdxJ_sNQ9vLMMybyZ79xWlZFOxni02rtZIb-C3xGGKH1in0GaGGF7v3C-jpobCeXEv/exec', json=data)
-        print('response:', response.text)
-        result = response.json()
-
-        print(f"Resposta do Google Sheets: {result}")
-
-        if result.get("result") == "Success":
-            await update.message.reply_text(f"✅ Adicionado: {data['description']} ({data['category']}) - R${data['cost']:.2f}")
-        else:
-            await update.message.reply_text("❌ Erro ao salvar na planilha.")
-
-    except Exception as e:
-        print(f"Erro ao processar mensagem: {e}")
-        await update.message.reply_text("❌ Erro ao processar a mensagem.")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Erro ao processar uma das transações: {transaction_text.strip()}")
 
 # -----------------------------------------------------------
 # 👉 Configuração do Flask e Inicialização Controlada do PTB
